@@ -1,75 +1,117 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Camera Share Demo</title>
+
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+
+    video {
+      width: 90%;
+      max-width: 600px;
+      margin: 10px;
+      background: #111;
+      border-radius: 12px;
+    }
+
+    button, input {
+      padding: 12px;
+      margin: 6px;
+      font-size: 16px;
+    }
+
+    #myId {
+      font-weight: bold;
+      word-break: break-all;
+    }
+  </style>
 </head>
+
 <body>
 
-<h2>Consent Camera Demo</h2>
+  <h2>📹 Camera Share Demo</h2>
 
-<p id="myId">Connecting...</p>
+  <p>
+    Your Peer ID:
+    <br>
+    <span id="myId">Connecting...</span>
+  </p>
 
-<button id="shareBtn">Share My Camera</button>
+  <button onclick="shareCamera()">Share My Camera</button>
 
-<br><br>
+  <hr>
 
-<video id="localVideo" autoplay muted playsinline width="400"></video>
+  <h3>Remote Camera</h3>
+  <video id="remoteVideo" autoplay playsinline controls></video>
 
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script>
+    const peer = new Peer();
 
-<script>
-const peer = new Peer();
-
-let myId;
-let localStream;
-
-peer.on("open", id => {
-    myId = id;
-    document.getElementById("myId").innerText =
-        "Your ID: " + id;
-});
-
-document.getElementById("shareBtn").onclick = async () => {
-
-    localStream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: false
+    peer.on('open', function(id) {
+      document.getElementById('myId').textContent = id;
     });
 
-    document.getElementById("localVideo").srcObject = localStream;
+    peer.on('call', function(call) {
+      const answer = confirm(
+        "Someone wants to receive your camera. Accept?"
+      );
 
-    const otherId = prompt("Enter the viewer's Peer ID:");
-
-    if (otherId) {
-        const call = peer.call(otherId, localStream);
-    }
-};
-
-peer.on("call", call => {
-
-    if (!localStream) {
-        alert("Camera sharing has not been started.");
+      if (!answer) {
         return;
-    }
+      }
 
-    call.answer(localStream);
-
-    call.on("stream", remoteStream => {
-        let video = document.getElementById("remoteVideo");
-
-        if (!video) {
-            video = document.createElement("video");
-            video.id = "remoteVideo";
-            video.autoplay = true;
-            video.playsInline = true;
-            video.width = 500;
-            document.body.appendChild(video);
-        }
-
-        video.srcObject = remoteStream;
+      navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true
+      })
+      .then(function(stream) {
+        call.answer(stream);
+      })
+      .catch(function(error) {
+        alert("Camera permission required.");
+        console.error(error);
+      });
     });
-});
-</script>
+
+    peer.on('error', function(error) {
+      console.error(error);
+      alert("PeerJS error: " + error.type);
+    });
+
+    function shareCamera() {
+      const viewerId = prompt(
+        "Enter the Peer ID of the person who should receive your camera:"
+      );
+
+      if (!viewerId) return;
+
+      navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true
+      })
+      .then(function(stream) {
+
+        const call = peer.call(viewerId, stream);
+
+        call.on('stream', function(remoteStream) {
+          document.getElementById('remoteVideo').srcObject = remoteStream;
+        });
+
+      })
+      .catch(function(error) {
+        alert("Camera permission required.");
+        console.error(error);
+      });
+    }
+  </script>
 
 </body>
 </html>
